@@ -1,7 +1,7 @@
 ## Gogi: A Streamlined .gitignore Template Generator
 
 ### Installation
-Deploy Gogi swiftly with the following command:
+Deploy Gogi ith the following command:
 ```bash
 go install github.com/SQUASHD/gogi@latest
 ```
@@ -13,7 +13,7 @@ gogi init
 ```
 
 ### Template Management
-Craft a new, blank template effortlessly:
+Craft a new, blank template 
 ```bash
 gogi create <template-name>
 ```
