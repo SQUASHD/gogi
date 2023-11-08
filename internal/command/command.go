@@ -1,15 +1,14 @@
-package commands
+package command
 
 import (
 	"errors"
 	"fmt"
+	"github.com/SQUASHD/gogi/internal/config"
 	"os"
 	"os/exec"
 
-	"github.com/SQUASHD/gogi/internal/file"
 	"github.com/SQUASHD/gogi/internal/generator"
 	"github.com/SQUASHD/gogi/internal/structs"
-	"github.com/SQUASHD/gogi/pkg/config"
 )
 
 var aliasMap = map[string]string{
@@ -23,8 +22,8 @@ var aliasMap = map[string]string{
 	"b": "base",
 }
 
-// CommandContext holds the state and provides methods to execute CLI commands
-type CommandContext struct {
+// Context holds the state and provides methods to execute CLI commands
+type Context struct {
 	cfg        *structs.TemplateConfig
 	cwd        string
 	commands   map[string]cliCommand
@@ -36,93 +35,121 @@ type cliCommand struct {
 	name        string
 	description string
 	fullCommand string
-	callback    func(*CommandContext, []string) error
+	callback    func(*Context, []string) error
 }
 
 // NewCommandContext initializes a new command context with the given configuration
 // and current working directory
-func NewCommandContext(cfg *structs.TemplateConfig) (*CommandContext, error) {
+func NewCommandContext(cfg *structs.TemplateConfig) (*Context, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("could not get current working directory: %w", err)
 	}
-	ctx := &CommandContext{
+	ctx := &Context{
 		cfg:        cfg,
 		cwd:        cwd,
-		projectDir: config.ConfigDir,
+		projectDir: config.Dir,
 	}
 	ctx.commands = ctx.getCommands()
 	return ctx, nil
 }
 
 // getCommands returns a map of commands with their corresponding callback functions
-func (ctx *CommandContext) getCommands() map[string]cliCommand {
+func (ctx *Context) getCommands() map[string]cliCommand {
 	return map[string]cliCommand{
 		"create": {
 			name:        "create",
 			description: "Create a new template",
 			fullCommand: "gogi create template-name",
-			callback:    (*CommandContext).commandCreate,
+			callback:    (*Context).commandCreate,
 		},
 		"delete": {
 			name:        "delete",
 			description: "Delete an existing gitignore alias",
 			fullCommand: "gogi delete template-name",
-			callback:    (*CommandContext).commandDelete,
+			callback:    (*Context).commandDelete,
 		},
 		"list": {
 			name:        "list",
 			description: "List all the templates",
 			fullCommand: "gogi list",
-			callback:    (*CommandContext).commandList,
+			callback:    (*Context).commandList,
 		},
 		"generate": {
 			name:        "generate",
 			description: "Generate a gitignore file from the given template",
 			fullCommand: "gogi generate template-name",
-			callback:    (*CommandContext).commandGenerate,
+			callback:    (*Context).commandGenerate,
 		},
 		"edit": {
 			name:        "edit",
 			description: "Edit an existing template",
 			fullCommand: "gogi edit template-name",
-			callback:    (*CommandContext).commandEdit,
+			callback:    (*Context).commandEdit,
 		},
 		"append": {
 			name:        "append",
 			description: "Append a template to an existing gitignore file",
 			fullCommand: "gogi append template-name",
-			callback:    (*CommandContext).commandAppend,
+			callback:    (*Context).commandAppend,
 		},
 		"help": {
 			name:        "help",
 			description: "Display help message, or help for a specific command",
 			fullCommand: "gogi help [command]",
-			callback:    (*CommandContext).commandHelp,
+			callback:    (*Context).commandHelp,
 		},
 		"editor": {
 			name:        "editor",
 			description: "Set the editor to use for editing templates",
 			fullCommand: "gogi editor editor-name",
-			callback:    (*CommandContext).commandEditor,
+			callback:    (*Context).commandEditor,
 		},
 		"base": {
 			name:        "base",
 			description: "set the base template that you call with gogi with no args",
 			fullCommand: "gogi base template-name",
-			callback:    (*CommandContext).commandBase,
+			callback:    (*Context).commandBase,
 		},
 		"alias": {
 			name:        "alias",
 			description: "show the list of avaiable command aliases",
 			fullCommand: "gogi alias",
-			callback:    (*CommandContext).commandAlias,
+			callback:    (*Context).commandAlias,
 		},
 	}
 }
 
+// HandleQuickGogi tries to create a .gitignore file based on the template
+// designated as the base template
+func (ctx *Context) HandleQuickGogi() error {
+	baseTempl := ctx.cfg.Base
+	if baseTempl == "" {
+		return fmt.Errorf("no base template is set. try gogi base or gogi help")
+	}
+	templ, err := config.FindTemplateByName(ctx.cfg, baseTempl)
+	if err != nil {
+		return err
+	}
+
+	exists, err := generator.DoesGitignoreExist(ctx.cwd)
+	if err != nil {
+		return fmt.Errorf("error determining whether .gitignore exists")
+	}
+	if exists {
+		fmt.Println("gogi with no argument is intended to run with no .gitignore file present")
+		return fmt.Errorf("there's already a .gitignore file")
+	}
+	err = generator.GenerateGitignore(templ.Path, ctx.cwd)
+	if err != nil {
+		return err
+	}
+	fmt.Println("successfully added base .gitignore template")
+	return nil
+}
+
 // commandDelete is the callback for the "delete" command
-func (ctx *CommandContext) commandDelete(args []string) error {
+func (ctx *Context) commandDelete(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no template name provided to delete")
 	}
@@ -161,7 +188,7 @@ func (ctx *CommandContext) commandDelete(args []string) error {
 
 // commandCreate is the callback for the "add" command
 // It adds a new template to the configuration
-func (ctx *CommandContext) commandCreate(args []string) error {
+func (ctx *Context) commandCreate(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no template name provided to create")
 	}
@@ -193,7 +220,7 @@ func (ctx *CommandContext) commandCreate(args []string) error {
 
 // commandList is the callback for the "list" command
 // It lists all the templates in the configuration
-func (ctx *CommandContext) commandList(args []string) error {
+func (ctx *Context) commandList(args []string) error {
 	if len(ctx.cfg.Templates) == 0 {
 		fmt.Println("you don't have any templates!")
 		fmt.Println("try gogi create template-name to create a new one")
@@ -210,7 +237,7 @@ func (ctx *CommandContext) commandList(args []string) error {
 
 // commandGenerate is the callback for the "generate" command
 // It generates a gitignore file from the given template
-func (ctx *CommandContext) commandGenerate(args []string) error {
+func (ctx *Context) commandGenerate(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no template name provided")
 	}
@@ -238,7 +265,7 @@ func (ctx *CommandContext) commandGenerate(args []string) error {
 
 // commandEdit is the callback for the "edit" command
 // It edits an existing template
-func (ctx *CommandContext) commandEdit(args []string) error {
+func (ctx *Context) commandEdit(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no template name provided")
 	}
@@ -248,7 +275,7 @@ func (ctx *CommandContext) commandEdit(args []string) error {
 		return err
 	}
 
-	err = file.OpenTemplateInEditor(ctx.cfg.Editor, templ.Path)
+	err = openTemplateInEditor(ctx.cfg.Editor, templ.Path)
 	if err != nil {
 		return err
 	}
@@ -258,7 +285,7 @@ func (ctx *CommandContext) commandEdit(args []string) error {
 
 // commandAppend is the callback for the "append" command
 // It appends a template to an existing gitignore file
-func (ctx *CommandContext) commandAppend(args []string) error {
+func (ctx *Context) commandAppend(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no template name provided to append")
 	}
@@ -289,7 +316,7 @@ func (ctx *CommandContext) commandAppend(args []string) error {
 
 // commandHelp is the callback for the "help" command
 // It displays the help message
-func (ctx *CommandContext) commandHelp(args []string) error {
+func (ctx *Context) commandHelp(args []string) error {
 	if len(args) > 0 {
 		cmdName := resolveCommand(args[0])
 		if cmd, ok := ctx.commands[cmdName]; ok {
@@ -312,7 +339,7 @@ func (ctx *CommandContext) commandHelp(args []string) error {
 
 // commandEditor is the callback for the "editor" command
 // It sets the editor to use for editing templates
-func (ctx *CommandContext) commandEditor(args []string) error {
+func (ctx *Context) commandEditor(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no editor name provided")
 	}
@@ -331,7 +358,7 @@ func (ctx *CommandContext) commandEditor(args []string) error {
 
 // commandBase handles setting the base template or callsback the edit
 // command to edit the base template based on the user flags
-func (ctx *CommandContext) commandBase(args []string) error {
+func (ctx *Context) commandBase(args []string) error {
 	baseName := ctx.cfg.Base
 	if len(args) == 0 && baseName == "" {
 		return fmt.Errorf("no base template set")
@@ -357,7 +384,7 @@ func (ctx *CommandContext) commandBase(args []string) error {
 }
 
 // HandleCommand handles the incoming CLI arguments
-func (ctx *CommandContext) HandleCommand(args []string) {
+func (ctx *Context) HandleCommand(args []string) {
 	if len(args) == 0 {
 		fmt.Println("no command provided. try gogi help")
 		return
@@ -375,7 +402,7 @@ func (ctx *CommandContext) HandleCommand(args []string) {
 }
 
 // commandAlias handles listing the available aliases
-func (ctx *CommandContext) commandAlias(args []string) error {
+func (ctx *Context) commandAlias(args []string) error {
 	fmt.Println("the available aliases are")
 	for key, value := range aliasMap {
 		fmt.Printf("%s -> %s\n", key, value)
@@ -391,7 +418,7 @@ func resolveCommand(name string) string {
 	return name
 }
 
-func OpenTemplateInEditor(editor, templPath string) error {
+func openTemplateInEditor(editor, templPath string) error {
 	cmd := exec.Command(editor, templPath)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout

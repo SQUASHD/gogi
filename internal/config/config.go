@@ -10,8 +10,8 @@ import (
 
 var ErrTemplateNotFound = errors.New("template not found")
 
-var ConfigDir = os.Getenv("HOME") + "/.config/gogi"
-var configPath = ConfigDir + "/gogi.json"
+var Dir = os.Getenv("HOME") + "/.config/gogi"
+var configPath = Dir + "/gogi.json"
 
 func InitConfig() error {
 	var cfg structs.TemplateConfig

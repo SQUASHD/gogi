@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/SQUASHD/gogi/pkg/cli"
+	"github.com/SQUASHD/gogi/internal/cli"
 	"os"
 )
 

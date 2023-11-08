@@ -15,7 +15,7 @@ type Template struct {
 
 func (c TemplateConfig) Default() config.Config {
 	return TemplateConfig{
-		Editor:    "nvim",
+		Editor:    "nano",
 		Templates: []Template{},
 	}
 }

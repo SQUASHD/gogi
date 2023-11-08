@@ -2,78 +2,44 @@ package cli
 
 import (
 	"fmt"
+	"github.com/SQUASHD/gogi/internal/command"
+	"github.com/SQUASHD/gogi/internal/config"
 	"os"
 	"strings"
-
-	"github.com/SQUASHD/gogi/internal/commands"
-	"github.com/SQUASHD/gogi/internal/generator"
-	"github.com/SQUASHD/gogi/pkg/config"
 )
 
 func RunCli(args []string) {
-	cwd := os.Getenv("PWD")
-	if len(args) < 2 {
-		if err := handleQuickGogi(cwd); err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		os.Exit(0)
-	}
-
-	switch args[1] {
-	case "init":
+	if len(args) > 1 && args[1] == "init" {
 		if err := config.InitConfig(); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 		fmt.Println("Configuration initialized successfully.")
-	default:
-		cfg, err := config.LoadConfig()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-
-		ctx, err := commands.NewCommandContext(cfg)
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		args := sanitizeArgs(args[1:])
-		ctx.HandleCommand(args)
+		return
 	}
-}
 
-// handleQuickGogi tries to create a .gitignore file based on the template
-// designated as the base template
-func handleQuickGogi(cwd string) error {
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		return err
-	}
-	baseTempl := cfg.Base
-	if baseTempl == "" {
-		return fmt.Errorf("no base template is set. try gogi base or gogi help")
-	}
-	templ, err := config.FindTemplateByName(cfg, baseTempl)
-	if err != nil {
-		return err
+		fmt.Println(err)
+		os.Exit(1)
 	}
 
-	exists, err := generator.DoesGitignoreExist(cwd)
+	ctx, err := command.NewCommandContext(cfg)
 	if err != nil {
-		return fmt.Errorf("error determining whether .gitignore exists")
+		fmt.Println(err)
+		os.Exit(1)
 	}
-	if exists {
-		fmt.Println("gogi with no argument is intended to run with no .gitignore file present")
-		return fmt.Errorf("there's already a .gitignore file")
+
+	if len(args) == 1 {
+		if err := ctx.HandleQuickGogi(); err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		return
 	}
-	err = generator.GenerateGitignore(templ.Path, cwd)
-	if err != nil {
-		return err
-	}
-	fmt.Println("successfully added base .gitignore template")
-	return nil
+
+	args = sanitizeArgs(args[1:])
+	ctx.HandleCommand(args)
 }
 
 func sanitizeArgs(args []string) []string {

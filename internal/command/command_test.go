@@ -1,4 +1,4 @@
-package commands
+package command
 
 import (
 	"os"
@@ -50,13 +50,13 @@ func createTestConfig(t *testing.T, folderPath string) structs.TemplateConfig {
 	return testConfig
 }
 
-func newTestContext(t *testing.T) (*CommandContext, func()) {
+func newTestContext(t *testing.T) (*Context, func()) {
 	t.Helper()
 	testProjectDir, cleanupFunc := createTempDir(t)
 
 	testConfig := createTestConfig(t, testProjectDir)
 
-	ctx := &CommandContext{
+	ctx := &Context{
 		cfg:        &testConfig,
 		cwd:        testProjectDir,
 		projectDir: testProjectDir,
@@ -64,6 +64,27 @@ func newTestContext(t *testing.T) (*CommandContext, func()) {
 	ctx.commands = ctx.getCommands()
 
 	return ctx, cleanupFunc
+}
+
+func TestQuickGogiWithValidBase(t *testing.T) {
+	ctx, cleanup := newTestContext(t)
+	defer cleanup()
+
+	err := ctx.HandleQuickGogi()
+	if err != nil {
+		t.Errorf("Expected test to pass with valid base but got err: %v", err)
+	}
+}
+
+func TestQuickGogiWithInvalidBase(t *testing.T) {
+	ctx, cleanup := newTestContext(t)
+	defer cleanup()
+
+	ctx.cfg.Base = ""
+	err := ctx.HandleQuickGogi()
+	if err == nil {
+		t.Errorf("Expected test to fail with invalid base but got err: %v", err)
+	}
 }
 
 func TestDeleteCommandWithInvalidTemplate(t *testing.T) {
