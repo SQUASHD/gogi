@@ -1,4 +1,4 @@
-## Gogi: A simpl .gitignore template manager
+## Gogi: A simple .gitignore template manager
 
 ### Installation
 Deploy Gogi with the following command:
