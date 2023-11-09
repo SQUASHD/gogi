@@ -8,8 +8,13 @@ import (
 // commandEditor is the callback for the "editor" command
 // It sets the editor to use for editing templates
 func (ctx *Context) commandEditor(args []string) error {
+	if len(args) == 0 && ctx.cfg.Editor == "" {
+		fmt.Printf("you have not set an editor")
+		return nil
+	}
 	if len(args) == 0 {
-		return fmt.Errorf("no editor name provided")
+		fmt.Printf("editor set to '%s'\n", ctx.cfg.Editor)
+		return nil
 	}
 	name := args[0]
 

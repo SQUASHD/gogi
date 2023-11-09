@@ -3,6 +3,8 @@ package command
 import (
 	"fmt"
 	"github.com/SQUASHD/gogi/internal/config"
+	"os"
+	"os/exec"
 )
 
 // commandEdit is the callback for the "edit" command
@@ -22,5 +24,19 @@ func (ctx *Context) commandEdit(args []string) error {
 		return err
 	}
 
+	return nil
+}
+
+// openTemplateInEditor opens the template in the user's editor
+func openTemplateInEditor(editor, templPath string) error {
+	cmd := exec.Command(editor, templPath)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err := cmd.Run()
+	if err != nil {
+		return err
+	}
 	return nil
 }

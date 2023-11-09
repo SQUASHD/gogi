@@ -3,9 +3,10 @@ package structs
 import "github.com/SQUASHD/go-config/config"
 
 type TemplateConfig struct {
-	Editor    string     `json:"editor"`
-	Base      string     `json:"base"`
-	Templates []Template `json:"templates"`
+	Editor          string     `json:"editor"`
+	Base            string     `json:"base"`
+	DefaultOverride bool       `json:"default_override"`
+	Templates       []Template `json:"templates"`
 }
 
 type Template struct {
@@ -15,8 +16,9 @@ type Template struct {
 
 func (c TemplateConfig) Default() config.Config {
 	return TemplateConfig{
-		Editor:    "code",
-		Base:      "",
-		Templates: []Template{},
+		Editor:          "code",
+		Base:            "",
+		DefaultOverride: false,
+		Templates:       []Template{},
 	}
 }

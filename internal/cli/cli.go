@@ -9,11 +9,11 @@ import (
 	"github.com/SQUASHD/gogi/internal/config"
 )
 
-var projectDir = os.Getenv("HOME") + "/.config/gogi"
-var configPath = projectDir + "/config.json"
-
-//var projectDir = "/Users/hjartland/repos/cli-utils/quick-gi/testing"
+//var projectDir = os.Getenv("HOME") + "/.config/gogi"
 //var configPath = projectDir + "/config.json"
+
+var projectDir = "/Users/hjartland/repos/cli-utils/quick-gi/testing"
+var configPath = projectDir + "/config.json"
 
 func RunCli(args []string) {
 	if len(args) > 1 && args[1] == "init" {
