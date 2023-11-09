@@ -4,10 +4,12 @@
 > [!IMPORTANT]  
 > While the features are stable, this is still a work in progress
 
+![the installation process for gogi](./gifs/gogi_init.gif)
+
 ### Installation
 Deploy Gogi with the following command:
 ```bash
-go install github.com/SQUASHD/gogi
+go install github.com/SQUASHD/gogi@latest
 ```
 
 ### Configuration
@@ -17,9 +19,10 @@ gogi init
 ```
 
 ### Template Management
+![using gogi](./gifs/gogi_editor.gif)
 Craft a new, blank template 
 ```bash
-gogi create <template-name>
+gogi create <template-name> [-e open in editor] [-b set as base]
 ```
 
 Specify your preferred editor for template customization:
