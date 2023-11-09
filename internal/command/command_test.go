@@ -1,35 +1,12 @@
 package command
 
 import (
-	"os"
+	"github.com/SQUASHD/gogi/internal/tests"
 	"path/filepath"
 	"testing"
 
 	"github.com/SQUASHD/gogi/internal/structs"
 )
-
-func createTempDir(t *testing.T) (string, func()) {
-	t.Helper()
-	tempDir, err := os.MkdirTemp("", "test")
-	if err != nil {
-		t.Fatalf("Failed to create temp directory: %v", err)
-	}
-	_, err = os.Create(filepath.Join(tempDir, "test1.gitignore"))
-	if err != nil {
-		t.Fatalf("Failed to create test1.gitignore file: %v", err)
-	}
-	_, err = os.Create(filepath.Join(tempDir, "test2.gitignore"))
-	if err != nil {
-		t.Fatalf("Failed to create test2.gitignore file: %v", err)
-	}
-
-	return tempDir, func() {
-		err := os.RemoveAll(tempDir)
-		if err != nil {
-			t.Errorf("Failed to remove temp directory: %v", err)
-		}
-	}
-}
 
 func createTestConfig(t *testing.T, folderPath string) structs.TemplateConfig {
 	t.Helper()
@@ -52,17 +29,10 @@ func createTestConfig(t *testing.T, folderPath string) structs.TemplateConfig {
 
 func newTestContext(t *testing.T) (*Context, func()) {
 	t.Helper()
-	testProjectDir, cleanupFunc := createTempDir(t)
-
-	testConfig := createTestConfig(t, testProjectDir)
-
-	ctx := &Context{
-		cfg:        &testConfig,
-		cwd:        testProjectDir,
-		projectDir: testProjectDir,
-	}
-	ctx.commands = ctx.getCommands()
-
+	dir, cleanupFunc := tests.CreateTempDir(t)
+	configPath := filepath.Join(dir, "config.json")
+	cfg := createTestConfig(t, dir)
+	ctx, _ := NewCommandContext(&cfg, dir, dir, configPath)
 	return ctx, cleanupFunc
 }
 
@@ -343,5 +313,73 @@ func TestCommandAppendWithValidTemplate(t *testing.T) {
 	err = ctx.commandAppend([]string{"test2"})
 	if err != nil {
 		t.Errorf("expected no error when calling append with valid template name, but got err: %v", err)
+	}
+}
+
+func TestRenameWithValidTemplate(t *testing.T) {
+	ctx, cleanup := newTestContext(t)
+	defer cleanup()
+	err := ctx.commandRename([]string{"test1", "test3"})
+	if err != nil {
+		t.Errorf("expected no error when calling rename with valid template name, but got err: %v", err)
+	}
+}
+
+func TestRenameWithInvalidTemplate(t *testing.T) {
+	ctx, cleanup := newTestContext(t)
+	defer cleanup()
+	err := ctx.commandRename([]string{"wrong", "test3"})
+	if err == nil {
+		t.Errorf("should not accept improper template name")
+	}
+}
+
+func TestRenameToExistingTemplate(t *testing.T) {
+	ctx, cleanup := newTestContext(t)
+	defer cleanup()
+	err := ctx.commandRename([]string{"test1", "test2"})
+	if err == nil {
+		t.Errorf("should not accept existing template name")
+	}
+}
+
+func TestRenameWithMissingArgs(t *testing.T) {
+	ctx, cleanup := newTestContext(t)
+	defer cleanup()
+	err := ctx.commandRename([]string{"test1"})
+	if err == nil {
+		t.Errorf("should not accept missing args")
+	}
+}
+
+func TestRenameUpdatesBase(t *testing.T) {
+	ctx, cleanup := newTestContext(t)
+	defer cleanup()
+	err := ctx.commandRename([]string{"test1", "test3"})
+	if err != nil {
+		t.Errorf("expected no error when calling rename with valid template name, but got err: %v", err)
+	}
+	if ctx.cfg.Base != "test3" {
+		t.Errorf("expected base to be test3 but got %s", ctx.cfg.Base)
+	}
+}
+
+func TestRenameUpdatesReferenceTemplate(t *testing.T) {
+	ctx, cleanup := newTestContext(t)
+	defer cleanup()
+
+	err := ctx.commandRename([]string{"test1", "test3"})
+	if err != nil {
+		t.Fatalf("expected no error when calling rename with valid template name, but got: %v", err)
+	}
+
+	expectedPath := filepath.Join(ctx.projectDir, "test3.gitignore")
+
+	// Cast to string because the path is of type string`json:"path"` of Template Type
+	var resultPath string
+	resultPath = ctx.cfg.Templates[0].Path
+
+	if resultPath != expectedPath {
+		t.Errorf("expected reference template to be %s but got %s", expectedPath, ctx.cfg.Templates[0].Path)
 	}
 }

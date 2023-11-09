@@ -2,15 +2,22 @@ package cli
 
 import (
 	"fmt"
-	"github.com/SQUASHD/gogi/internal/command"
-	"github.com/SQUASHD/gogi/internal/config"
 	"os"
 	"strings"
+
+	"github.com/SQUASHD/gogi/internal/command"
+	"github.com/SQUASHD/gogi/internal/config"
 )
+
+var projectDir = os.Getenv("HOME") + "/.config/gogi"
+var configPath = projectDir + "/config.json"
+
+//var projectDir = "/Users/hjartland/repos/cli-utils/quick-gi/testing"
+//var configPath = projectDir + "/config.json"
 
 func RunCli(args []string) {
 	if len(args) > 1 && args[1] == "init" {
-		if err := config.InitConfig(); err != nil {
+		if err := config.InitConfig(configPath); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
@@ -18,13 +25,13 @@ func RunCli(args []string) {
 		return
 	}
 
-	cfg, err := config.LoadConfig()
+	cfg, err := config.LoadConfig(configPath)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-
-	ctx, err := command.NewCommandContext(cfg)
+	cwd := os.Getenv("PWD")
+	ctx, err := command.NewCommandContext(cfg, cwd, projectDir, configPath)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)

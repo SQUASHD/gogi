@@ -70,6 +70,11 @@ func CreateEmptyTemplateFile(projectDir, templName string) error {
 	return nil
 }
 
+// CreateTemplatePath creates a path to a template file
+func CreateTemplatePath(projectDir, templName string) string {
+	return filepath.Join(projectDir, templName+".gitignore")
+}
+
 func DeleteTemplateFile(projectDir, templName string) error {
 	fileName := templName + ".gitignore"
 	err := os.Chdir(projectDir)
@@ -102,6 +107,19 @@ func CheckWhetherTemplateExists(templPath string) error {
 	_, err := os.Stat(templPath)
 	if err != nil {
 		return fmt.Errorf("template does not exist at: %s", err)
+	}
+	return nil
+}
+
+func GenerateTemplatePath(projectDir, templName string) string {
+	return filepath.Join(projectDir, templName+".gitignore")
+}
+
+func RenameTemplateFile(projectDir, oldName, newName string) error {
+	oldPath := GenerateTemplatePath(projectDir, oldName)
+	newPath := GenerateTemplatePath(projectDir, newName)
+	if err := os.Rename(oldPath, newPath); err != nil {
+		return fmt.Errorf("error renaming template from %s to %s: %v", oldPath, newPath, err)
 	}
 	return nil
 }
