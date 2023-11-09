@@ -1,5 +1,9 @@
 ## Gogi: A simple .gitignore template manager
 
+
+> [!IMPORTANT]  
+> While the features are stable, this is still a work in progress
+
 ### Installation
 Deploy Gogi with the following command:
 ```bash
