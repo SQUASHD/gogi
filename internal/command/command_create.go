@@ -41,6 +41,7 @@ func (ctx *Context) commandCreate(args []string) error {
 			if err := config.SaveConfig(ctx.cfg, ctx.configPath); err != nil {
 				return fmt.Errorf("could not save updated configuration: %w", err)
 			}
+			fmt.Printf("base template set to '%s'\n", args[0])
 		default:
 			return fmt.Errorf("invalid flag '%s', expected -e, -edit, -b, or -base", arg)
 		}
