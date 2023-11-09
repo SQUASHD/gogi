@@ -42,7 +42,7 @@ gogi base <template-name>
 
 Delete an outdated template
 ```bash
-gogi delete <templaet-name> [--force will override the are you sure prompt]
+gogi delete <template-name> [--force will override the are you sure prompt]
 ```
 
 ### Generate .gitignore
@@ -95,7 +95,7 @@ e -> edit
 b -> base
 ```
 
-See the whole suite of Gogi commands:
+See the whole suite of Gogi commands at any point
 ```bash
 gogi help
 ```
