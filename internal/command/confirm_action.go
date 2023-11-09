@@ -17,7 +17,7 @@ func (ctx *Context) ConfirmAction(prompt string, in io.Reader, out io.Writer) (b
 	if ctx.cfg.DefaultOverride {
 		return true, nil
 	}
-	
+
 	scanner := bufio.NewScanner(in)
 	for {
 		_, err := fmt.Fprint(out, prompt+" [y/n]: ")

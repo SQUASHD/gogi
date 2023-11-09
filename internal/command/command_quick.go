@@ -26,7 +26,7 @@ func (ctx *Context) HandleQuickGogi() error {
 
 	if exists {
 		confirmationPrompt := "A .gitignore file already exists.\nOverwrite?"
-		confirmed, err := ConfirmAction(confirmationPrompt, os.Stdin, os.Stdout)
+		confirmed, err := ctx.ConfirmAction(confirmationPrompt, os.Stdin, os.Stdout)
 		if err != nil {
 			return err
 		}

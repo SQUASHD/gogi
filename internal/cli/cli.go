@@ -16,6 +16,8 @@ var projectDir = "/Users/hjartland/repos/cli-utils/quick-gi/testing"
 var configPath = projectDir + "/config.json"
 
 func RunCli(args []string) {
+	args = sanitizeArgs(args)
+
 	if len(args) > 1 && args[1] == "init" {
 		if err := config.InitConfig(configPath); err != nil {
 			fmt.Println(err)
@@ -45,7 +47,7 @@ func RunCli(args []string) {
 		return
 	}
 
-	args = sanitizeArgs(args[1:])
+	args = args[1:]
 	ctx.HandleCommand(args)
 }
 

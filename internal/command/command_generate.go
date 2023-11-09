@@ -36,7 +36,7 @@ func (ctx *Context) commandGenerate(args []string) error {
 
 	if exists && !force {
 		confirmMsg := "A .gitignore file already exists. Do you want to overwrite it?"
-		confirmed, err := ConfirmAction(confirmMsg, os.Stdin, os.Stdout)
+		confirmed, err := ctx.ConfirmAction(confirmMsg, os.Stdin, os.Stdout)
 		if err != nil {
 			return err
 		}

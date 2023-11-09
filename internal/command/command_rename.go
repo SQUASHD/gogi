@@ -11,6 +11,12 @@ func (ctx *Context) commandRename(args []string) error {
 	if len(args) < 2 {
 		return fmt.Errorf("not enough arguments provided")
 	}
+
+	err := checkIfReservedWord(args[1])
+	if err != nil {
+		return err
+	}
+
 	oldName := args[0]
 	newName := args[1]
 	templIdx, err := config.GetTemplateIndexByName(ctx.cfg, oldName)
