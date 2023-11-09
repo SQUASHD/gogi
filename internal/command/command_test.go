@@ -14,6 +14,7 @@ func createTempDir(t *testing.T) (string, func()) {
 	if err != nil {
 		t.Fatalf("Failed to create temp directory: %v", err)
 	}
+
 	file1, err := os.Create(filepath.Join(tempDir, "test1.gitignore"))
 	if err != nil {
 		t.Fatalf("Failed to create test1.gitignore file: %v", err)
@@ -137,12 +138,17 @@ func TestCreateCommand(t *testing.T) {
 		name        string
 		args        []string
 		wantErr     bool
+		baseChanged bool
 		expectedLen int
 	}{
-		{"create valid name", []string{"test3"}, false, 3},
-		{"create existing name", []string{"test1"}, true, 2},
-		{"create malformed arg", []string{""}, true, 2},
-		{"create no args", []string{}, true, 2},
+		{"create valid name", []string{"test3"}, false, false, 3},
+		{"create existing name", []string{"test1"}, true, false, 2},
+		{"create malformed arg", []string{""}, true, false, 2},
+		{"create no args", []string{}, true, false, 2},
+		{"create with base flag 1", []string{"test3", "-b"}, false, true, 3},
+		{"create with base flag2", []string{"test3", "-base"}, false, true, 3},
+		{"create malformed arg and base flag", []string{"test1", "-base"}, true, false, 2},
+		{"create with reserved word", []string{"help"}, true, false, 2},
 	}
 
 	for _, tt := range tests {
@@ -152,11 +158,14 @@ func TestCreateCommand(t *testing.T) {
 
 			err := ctx.commandCreate(tt.args)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("commandDelete() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("commandCreate() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
 			if len(ctx.cfg.Templates) != tt.expectedLen {
 				t.Errorf("Expected templates to have length %d but got %d", tt.expectedLen, len(ctx.cfg.Templates))
+			}
+			if tt.baseChanged && ctx.cfg.Base != tt.args[0] {
+				t.Errorf("Expected base to be %s but got %s", tt.args[0], ctx.cfg.Base)
 			}
 		})
 	}

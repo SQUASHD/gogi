@@ -1,8 +1,17 @@
 package command
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/SQUASHD/gogi/internal/structs"
 )
+
+var ReservedWords = []string{"help", "h", "version", "v", "list", "l",
+	"create", "c", "edit", "e", "delete", "d", "test", "t", "base", "b"}
+
+var ReservedFlags = []string{"-h", "-help", "-v", "-version", "-l", "-list",
+	"-c", "-create", "-e", "-edit", "-d", "-delete", "-t", "-test", "-b", "-base"}
 
 var aliasMap = map[string]string{
 	"h": "help",
@@ -116,4 +125,45 @@ func (ctx *Context) getCommands() map[string]cliCommand {
 			callback:    (*Context).commandRename,
 		},
 	}
+}
+
+func checkIfReservedWord(word string) error {
+
+	for _, reserverdWord := range ReservedWords {
+		if word == reserverdWord {
+			return fmt.Errorf("'%s' is a reserved word", reserverdWord)
+		}
+	}
+	for _, reserverdFlag := range ReservedFlags {
+		if word == reserverdFlag {
+			return fmt.Errorf("'%s' is a reserved flag", reserverdFlag)
+		}
+	}
+	return nil
+}
+
+// HandleCommand handles the incoming CLI arguments
+func (ctx *Context) HandleCommand(args []string) {
+	if len(args) == 0 {
+		fmt.Println("no command provided. try gogi help")
+		return
+	}
+
+	cmdName := resolveCommand(args[0])
+	if cmd, ok := ctx.commands[cmdName]; ok {
+		if err := cmd.callback(ctx, args[1:]); err != nil {
+			fmt.Printf("%v\n", err)
+			os.Exit(1)
+		}
+	} else {
+		fmt.Printf("Unknown command: %s\n", cmdName)
+	}
+}
+
+// Helper function to resolve command aliases
+func resolveCommand(name string) string {
+	if primaryName, exists := aliasMap[name]; exists {
+		return primaryName
+	}
+	return name
 }

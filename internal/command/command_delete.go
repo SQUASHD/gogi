@@ -27,7 +27,7 @@ func (ctx *Context) commandDelete(args []string) error {
 		} else {
 			confirmationPrompt = fmt.Sprintf("Are you sure you want to delete template '%s'?", name)
 		}
-		confirmed, err := ConfirmAction(confirmationPrompt, os.Stdin, os.Stdout)
+		confirmed, err := ctx.ConfirmAction(confirmationPrompt, os.Stdin, os.Stdout)
 		if err != nil {
 			return err
 		}
