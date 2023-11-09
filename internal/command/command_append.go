@@ -19,7 +19,6 @@ func (ctx *Context) commandAppend(args []string) error {
 		return fmt.Errorf("could not find template '%s'", name)
 	}
 
-	// check if .gitignore exists
 	exists, err := generator.DoesGitignoreExist(ctx.cwd)
 	if err != nil {
 		return err

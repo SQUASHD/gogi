@@ -22,3 +22,11 @@ func (ctx *Context) HandleCommand(args []string) {
 		fmt.Printf("Unknown command: %s\n", cmdName)
 	}
 }
+
+// Helper function to resolve command aliases
+func resolveCommand(name string) string {
+	if primaryName, exists := aliasMap[name]; exists {
+		return primaryName
+	}
+	return name
+}

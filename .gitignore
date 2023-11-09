@@ -2,10 +2,5 @@
 .vscode
 .idea
 
-# env
-.env
-.env.local
-
-# Go
-bin
-testing
+/testing
+/bin

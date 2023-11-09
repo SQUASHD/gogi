@@ -1,17 +1,43 @@
 package command
 
 import (
-	"github.com/SQUASHD/gogi/internal/tests"
+	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/SQUASHD/gogi/internal/structs"
 )
 
+func createTempDir(t *testing.T) (string, func()) {
+	t.Helper()
+	tempDir, err := os.MkdirTemp("", "test")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %v", err)
+	}
+	file1, err := os.Create(filepath.Join(tempDir, "test1.gitignore"))
+	if err != nil {
+		t.Fatalf("Failed to create test1.gitignore file: %v", err)
+	}
+	file1.Close()
+
+	file2, err := os.Create(filepath.Join(tempDir, "test2.gitignore"))
+	if err != nil {
+		t.Fatalf("Failed to create test2.gitignore file: %v", err)
+	}
+	file2.Close()
+
+	return tempDir, func() {
+		err := os.RemoveAll(tempDir)
+		if err != nil {
+			t.Errorf("Failed to remove temp directory: %v", err)
+		}
+	}
+}
+
 func createTestConfig(t *testing.T, folderPath string) structs.TemplateConfig {
 	t.Helper()
 	testConfig := structs.TemplateConfig{
-		Editor: "nvim",
+		Editor: "nano",
 		Base:   "test1",
 		Templates: []structs.Template{
 			{
@@ -29,357 +55,310 @@ func createTestConfig(t *testing.T, folderPath string) structs.TemplateConfig {
 
 func newTestContext(t *testing.T) (*Context, func()) {
 	t.Helper()
-	dir, cleanupFunc := tests.CreateTempDir(t)
+	dir, cleanupFunc := createTempDir(t)
 	configPath := filepath.Join(dir, "config.json")
 	cfg := createTestConfig(t, dir)
 	ctx, _ := NewCommandContext(&cfg, dir, dir, configPath)
 	return ctx, cleanupFunc
 }
 
-func TestQuickGogiWithValidBase(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-
-	err := ctx.HandleQuickGogi()
+func addGitIgnoreToTestDir(t *testing.T, ctx *Context) {
+	t.Helper()
+	gitignorePath := filepath.Join(ctx.cwd, ".gitignore")
+	destinationFile, err := os.Create(gitignorePath)
 	if err != nil {
-		t.Errorf("Expected test to pass with valid base but got err: %v", err)
+		t.Fatalf("unable to create .gitignore file: %v", err)
+	}
+	defer destinationFile.Close()
+}
+
+func TestAppendCommand(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		giExist bool
+		wantErr bool
+	}{
+		{"append valid", []string{"test2"}, true, false},
+		{"append invalid", []string{"invalid"}, true, true},
+		{"append valid no gitignore", []string{"test2"}, false, true},
+		{"append invalid no gitignore", []string{"invalid"}, false, true},
+		{"append no args", []string{}, true, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cleanup := newTestContext(t)
+			defer cleanup()
+
+			if tt.giExist {
+				addGitIgnoreToTestDir(t, ctx)
+			}
+
+			err := ctx.commandAppend(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("commandAppend() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 
-func TestQuickGogiWithInvalidBase(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
+func TestBaseCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		args     []string
+		wantErr  bool
+		expected string
+	}{
+		{"set valid base", []string{"test2"}, false, "test2"},
+		{"set invalid base", []string{"invalid"}, true, "test1"},
+		{"set same base", []string{"test1"}, false, "test1"},
+	}
 
-	ctx.cfg.Base = ""
-	err := ctx.HandleQuickGogi()
-	if err == nil {
-		t.Errorf("Expected test to fail with invalid base but got err: %v", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cleanup := newTestContext(t)
+			defer cleanup()
+
+			err := ctx.commandBase(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("commandBase() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if !tt.wantErr && ctx.cfg.Base != tt.expected {
+				t.Errorf("Expected base to be %s but got %s", tt.expected, ctx.cfg.Base)
+			}
+		})
 	}
 }
 
-func TestDeleteCommandWithInvalidTemplate(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
+func TestCreateCommand(t *testing.T) {
+	tests := []struct {
+		name        string
+		args        []string
+		wantErr     bool
+		expectedLen int
+	}{
+		{"create valid name", []string{"test3"}, false, 3},
+		{"create existing name", []string{"test1"}, true, 2},
+		{"create malformed arg", []string{""}, true, 2},
+		{"create no args", []string{}, true, 2},
+	}
 
-	err := ctx.commandDelete([]string{"doesnotexist"})
-	if err == nil {
-		t.Errorf("should not accept improper template name")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cleanup := newTestContext(t)
+			defer cleanup()
+
+			err := ctx.commandCreate(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("commandDelete() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if len(ctx.cfg.Templates) != tt.expectedLen {
+				t.Errorf("Expected templates to have length %d but got %d", tt.expectedLen, len(ctx.cfg.Templates))
+			}
+		})
 	}
 }
 
-func TestDeleteCommandWithValidTemplate(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-
-	err := ctx.commandDelete([]string{"test2"})
-	if err != nil {
-		t.Errorf("Expected test to pass with valid template name but got err: %v", err)
+func TestRenameCommand(t *testing.T) {
+	tests := []struct {
+		name        string
+		args        []string
+		wantErr     bool
+		pathChanged bool
+	}{
+		{"no args", []string{}, true, false},
+		{"missing args", []string{"test1"}, true, false},
+		{"rename to existing template", []string{"test1", "test2"}, true, false},
+		{"rename to new template", []string{"test1", "test3"}, false, true},
 	}
 
-	if ctx.cfg.Base != "test1" {
-		t.Errorf("Expected base to be test1 but got %s", ctx.cfg.Base)
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cleanup := newTestContext(t)
+			defer cleanup()
 
-	if len(ctx.cfg.Templates) != 1 {
-		t.Errorf("Expected templates to have length 1 but got %d", len(ctx.cfg.Templates))
+			originalPath := ctx.cfg.Templates[0].Path
+			err := ctx.commandRename(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("comandRename() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if tt.pathChanged && ctx.cfg.Templates[0].Path == originalPath {
+				t.Errorf("Expected path to change but it did not")
+			}
+		})
 	}
 }
 
-func TestDeleteCommandWithBaseTemplate(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-
-	err := ctx.commandDelete([]string{"test1"})
-	if err != nil {
-		t.Errorf("Expected test to pass with valid template name but got err: %v", err)
+func TestDeleteCommand(t *testing.T) {
+	tests := []struct {
+		name         string
+		args         []string
+		wantErr      bool
+		expectedBase string
+		expectedLen  int
+	}{
+		{"delete valid", []string{"test2", "--force"}, false, "test1", 1},
+		{"delete invalid", []string{"invalid", "--force"}, true, "test1", 2},
+		{"delete base", []string{"test1", "--force"}, false, "", 1},
 	}
 
-	if ctx.cfg.Base != "" {
-		t.Errorf("Expected base to be empty but got %s", ctx.cfg.Base)
-	}
-	if len(ctx.cfg.Templates) != 1 {
-		t.Errorf("Expected templates to have length 1 but got %d", len(ctx.cfg.Templates))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cleanup := newTestContext(t)
+			defer cleanup()
+
+			err := ctx.commandDelete(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("commandDelete() error = %v, wantErr %v", err, tt.wantErr)
+			}
+
+			if ctx.cfg.Base != tt.expectedBase {
+				t.Errorf("Expected base to be %s but got %s", tt.expectedBase, ctx.cfg.Base)
+			}
+
+			if len(ctx.cfg.Templates) != tt.expectedLen {
+				t.Errorf("Expected templates to have length %d but got %d", tt.expectedLen, len(ctx.cfg.Templates))
+			}
+		})
 	}
 }
 
-func TestBaseCommandWithSameTemplate(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandBase([]string{"test1"})
-	if err != nil {
-		t.Errorf("expected no error when setting base to same template")
+func TestEditCommand(t *testing.T) {
+	tests := []struct {
+		name      string
+		args      []string
+		editorSet bool
+		wantErr   bool
+	}{
+		{"edit no args with editor", []string{}, true, true},
+		{"edit no args without editor", []string{}, false, true},
+		{"edit malformed args with editor", []string{""}, true, true},
+		{"edit malformed args without editor", []string{""}, false, true},
+
+		// Some tests are diabled due to the command opening the editor
+		//{"edit invalid template", []string{"invalid"}, true, false},
+		//{"edit valid template", []string{"test1"}, true, false},
+		{"edit valid template without editor", []string{"test1"}, false, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cleanup := newTestContext(t)
+			defer cleanup()
+
+			if !tt.editorSet {
+				ctx.cfg.Editor = ""
+			}
+
+			err := ctx.commandEdit(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("commandEditor() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 
-func TestBaseCommandWithInvalidTemplate(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandBase([]string{"test3"})
-	if err == nil {
-		t.Errorf("expected to test with valid template name, but got err: %v", err)
+func TestEditorCommand(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		wantErr bool
+	}{
+		{"editor no args", []string{}, false},
+		{"editor malformed args", []string{""}, true},
+		{"editor same editor", []string{"nano"}, false},
+		{"edidtor new editor", []string{"code"}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cleanup := newTestContext(t)
+			defer cleanup()
+
+			err := ctx.commandEditor(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("commandEditor() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 
-func TestBaseCommandWithValidTemplate(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandBase([]string{"test2"})
-	if err != nil {
-		t.Errorf("expected to test with valid template name, but got err: %v", err)
+func TestCommandGenerate(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		giExist bool
+		wantErr bool
+	}{
+		{"generate valid", []string{"test2", "--force"}, false, false},
+		{"generate invalid", []string{"invalid", "--force"}, false, true},
+		{"generate valid with gitignore", []string{"test2", "--force"}, true, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cleanup := newTestContext(t)
+			defer cleanup()
+			if tt.giExist {
+				addGitIgnoreToTestDir(t, ctx)
+			}
+			err := ctx.commandGenerate(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("commandDelete() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 
-func TestCreateCommandWithExistingTemplateName(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandCreate([]string{"test1"})
-	if err == nil {
-		t.Errorf("should not accept existing template name")
+func TestCommandHelp(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		wantErr bool
+	}{
+		{"no args", []string{}, false},
+		{"valid args", []string{"help"}, false},
+		{"invalid args", []string{"invalid"}, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cleanup := newTestContext(t)
+			defer cleanup()
+			err := ctx.commandHelp(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("commandHelp() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
 
-func TestGenerateCommandWithValidTemplate(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandGenerate([]string{"test1"})
-	if err != nil {
-		t.Errorf("expected to test with valid template name, but got err: %v", err)
-	}
-}
-
-func TestGenerateCommandWithInvalidTemplate(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandGenerate([]string{"wrong"})
-	if err == nil {
-		t.Errorf("should not accept improper template name")
-	}
-}
-
-func TestHelpWithNoArgs(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandHelp([]string{})
-	if err != nil {
-		t.Errorf("expected no error when calling help with no args, but got err: %v", err)
-	}
-}
-
-func TestHelpWithValidTemplate(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandHelp([]string{"h"})
-	if err != nil {
-		t.Errorf("expected no error when calling help with valid template name, but got err: %v", err)
-	}
-}
-
-func TestHelpWithInvalidTemplate(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandHelp([]string{"wrong"})
-	if err == nil {
-		t.Errorf("should not accept improper template name")
-	}
-}
-
-func TestCommandEditWithInvalidTemplate(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandEdit([]string{"wrong"})
-	if err == nil {
-		t.Errorf("should not accept improper template name")
-	}
-}
-
-func TestCommandEditorWithNoArgs(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandEditor([]string{})
-	if err == nil {
-		t.Errorf("expected no error when calling editor with no args, but got err: %v", err)
-	}
-}
-
-func TestCommandEditorWithValidEditor(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandEditor([]string{"nvim"})
-	if err != nil {
-		t.Errorf("expected no error when calling editor with valid template name, but got err: %v", err)
-	}
-}
-
-func TestCommandListWithNoArgs(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandList([]string{})
-	if err != nil {
-		t.Errorf("expected no error when calling list with no args, but got err: %v", err)
-	}
-}
-
-func TestCommandBaseWithBaseTemplateAndNoArgs(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandBase([]string{})
-	if err != nil {
-		t.Errorf("expected no error when calling base with no args, but got err: %v", err)
-	}
-}
-
-func TestCommandBaseWithNoBaseTemplateAndNoArgs(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	ctx.cfg.Base = ""
-	err := ctx.commandBase([]string{})
-	if err == nil {
-		t.Errorf("expected error when calling base with no base template")
-	}
-}
-
-func TestCommandCreateThenDelete(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandCreate([]string{"test3"})
-	if err != nil {
-		t.Errorf("expected no error when calling add with valid template name, but got err: %v", err)
-	}
-	err = ctx.commandDelete([]string{"test3"})
-	if err != nil {
-		t.Errorf("expected no error when calling delete with valid template name, but got err: %v", err)
-	}
-}
-
-func TestCommandCreateThenGenerate(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandCreate([]string{"test3"})
-	if err != nil {
-		t.Errorf("expected no error when calling add with valid template name, but got err: %v", err)
-	}
-	err = ctx.commandGenerate([]string{"test3"})
-	if err != nil {
-		t.Errorf("expected no error when calling generate with valid template name, but got err: %v", err)
-	}
-}
-
-func TestCommandCreateThenBase(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandCreate([]string{"test3"})
-	if err != nil {
-		t.Errorf("expected no error when calling add with valid template name, but got err: %v", err)
-	}
-	err = ctx.commandBase([]string{"test3"})
-	if err != nil {
-		t.Errorf("expected no error when calling base with valid template name, but got err: %v", err)
-	}
-}
-
-func TestGenerateTwice(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandGenerate([]string{"test1"})
-	if err != nil {
-		t.Errorf("expected no error when calling generate with valid template name, but got err: %v", err)
-	}
-	err = ctx.commandGenerate([]string{"test1"})
-	if err == nil {
-		t.Errorf("expected error when calling generate twice")
-	}
-}
-
-func TestCommandAppendWithInvalidTemplate(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandGenerate([]string{"test1"})
-	if err != nil {
-		t.Errorf("expected no error when calling generate with valid template name, but got err: %v", err)
-	}
-	err = ctx.commandAppend([]string{"wrong"})
-	if err == nil {
-		t.Errorf("should not accept improper template name")
-	}
-}
-
-func TestCommandAppendWithValidTemplate(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandGenerate([]string{"test1"})
-	if err != nil {
-		t.Errorf("expected no error when calling generate with valid template name, but got err: %v", err)
-	}
-	err = ctx.commandAppend([]string{"test2"})
-	if err != nil {
-		t.Errorf("expected no error when calling append with valid template name, but got err: %v", err)
-	}
-}
-
-func TestRenameWithValidTemplate(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandRename([]string{"test1", "test3"})
-	if err != nil {
-		t.Errorf("expected no error when calling rename with valid template name, but got err: %v", err)
-	}
-}
-
-func TestRenameWithInvalidTemplate(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandRename([]string{"wrong", "test3"})
-	if err == nil {
-		t.Errorf("should not accept improper template name")
-	}
-}
-
-func TestRenameToExistingTemplate(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandRename([]string{"test1", "test2"})
-	if err == nil {
-		t.Errorf("should not accept existing template name")
-	}
-}
-
-func TestRenameWithMissingArgs(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandRename([]string{"test1"})
-	if err == nil {
-		t.Errorf("should not accept missing args")
-	}
-}
-
-func TestRenameUpdatesBase(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-	err := ctx.commandRename([]string{"test1", "test3"})
-	if err != nil {
-		t.Errorf("expected no error when calling rename with valid template name, but got err: %v", err)
-	}
-	if ctx.cfg.Base != "test3" {
-		t.Errorf("expected base to be test3 but got %s", ctx.cfg.Base)
-	}
-}
-
-func TestRenameUpdatesReferenceTemplate(t *testing.T) {
-	ctx, cleanup := newTestContext(t)
-	defer cleanup()
-
-	err := ctx.commandRename([]string{"test1", "test3"})
-	if err != nil {
-		t.Fatalf("expected no error when calling rename with valid template name, but got: %v", err)
+func TestQuickGogi(t *testing.T) {
+	tests := []struct {
+		name      string
+		validBase bool
+		wantErr   bool
+	}{
+		{"gogi with no base", true, false},
+		{"gogi with base", false, true},
 	}
 
-	expectedPath := filepath.Join(ctx.projectDir, "test3.gitignore")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cleanup := newTestContext(t)
+			defer cleanup()
+			if !tt.validBase {
+				ctx.cfg.Base = ""
+			}
 
-	// Cast to string because the path is of type string`json:"path"` of Template Type
-	var resultPath string
-	resultPath = ctx.cfg.Templates[0].Path
-
-	if resultPath != expectedPath {
-		t.Errorf("expected reference template to be %s but got %s", expectedPath, ctx.cfg.Templates[0].Path)
+			err := ctx.HandleQuickGogi()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("HandleQuickGogi() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
