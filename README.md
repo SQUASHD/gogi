@@ -69,30 +69,30 @@ gogi append <template-name>
 
 
 ```txt
+   alias: Show the list of avaiable command aliases
+  append: Append a template to an existing gitignore file
+    base: set the base template that you call with gogi with no args
   create: Create a new template
   delete: Delete an existing gitignore alias
-  editor: Set the editor to use for editing templates
-   alias: show the list of avaiable command aliases
-    help: Display help message, or help for a specific command
-    base: set the base template that you call with gogi with no args
-  rename: rename a template
-    list: List all the templates
-generate: Generate a gitignore file from the given template
     edit: Edit an existing template
-  append: Append a template to an existing gitignore file
+  editor: Set the editor to use for editing templates
+generate: Generate a gitignore file from the given template
+    help: Display help message, or help for a specific command
+    list: List all the templates
+  rename: Rename a template
 ```
 
 Most commands have an alias corresponding to their first letter
 ```
-d -> delete
 a -> append
-r -> rename
-h -> help
-c -> create
-l -> list
-g -> generate
-e -> edit
 b -> base
+c -> create
+d -> delete
+e -> edit
+g -> generate
+h -> help
+l -> list
+r -> rename
 ```
 
 See the whole suite of Gogi commands at any point

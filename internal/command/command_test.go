@@ -80,6 +80,7 @@ func TestAppendCommand(t *testing.T) {
 		giExist bool
 		wantErr bool
 	}{
+		{"append malformed", []string{""}, true, true},
 		{"append valid", []string{"test2"}, true, false},
 		{"append invalid", []string{"invalid"}, true, true},
 		{"append valid no gitignore", []string{"test2"}, false, true},
@@ -173,15 +174,17 @@ func TestCreateCommand(t *testing.T) {
 
 func TestRenameCommand(t *testing.T) {
 	tests := []struct {
-		name        string
-		args        []string
-		wantErr     bool
-		pathChanged bool
+		name         string
+		args         []string
+		wantErr      bool
+		pathChanged  bool
+		expectedBase string
 	}{
-		{"no args", []string{}, true, false},
-		{"missing args", []string{"test1"}, true, false},
-		{"rename to existing template", []string{"test1", "test2"}, true, false},
-		{"rename to new template", []string{"test1", "test3"}, false, true},
+		{"no args", []string{}, true, false, "test1"},
+		{"missing args", []string{"test1"}, true, false, "test1"},
+		{"rename to existing template", []string{"test1", "test2"}, true, false, "test1"},
+		{"rename to new template", []string{"test1", "test3"}, false, true, "test3"},
+		{"rename to to a reserved word", []string{"test1", "help"}, true, false, "test1"},
 	}
 
 	for _, tt := range tests {
@@ -197,6 +200,9 @@ func TestRenameCommand(t *testing.T) {
 
 			if tt.pathChanged && ctx.cfg.Templates[0].Path == originalPath {
 				t.Errorf("Expected path to change but it did not")
+			}
+			if ctx.cfg.Base != tt.expectedBase {
+				t.Errorf("Expected base to be %s but got %s", tt.expectedBase, ctx.cfg.Base)
 			}
 		})
 	}
@@ -280,7 +286,7 @@ func TestEditorCommand(t *testing.T) {
 		{"editor no args", []string{}, false},
 		{"editor malformed args", []string{""}, true},
 		{"editor same editor", []string{"nano"}, false},
-		{"edidtor new editor", []string{"code"}, false},
+		{"editor new editor", []string{"code"}, false},
 	}
 
 	for _, tt := range tests {
@@ -367,6 +373,32 @@ func TestQuickGogi(t *testing.T) {
 			err := ctx.HandleQuickGogi()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("HandleQuickGogi() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestImportCommand(t *testing.T) {
+	tests := []struct {
+		name    string
+		args    []string
+		wantErr bool
+	}{
+		{"import no args", []string{}, true},
+		{"import malformed args", []string{""}, true},
+		{"import valid args", []string{"test3"}, false},
+		{"import reserved word", []string{"help"}, true},
+		{"import existing template", []string{"test1"}, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cleanup := newTestContext(t)
+			defer cleanup()
+
+			err := ctx.commandImport(tt.args)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("commandImport() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}

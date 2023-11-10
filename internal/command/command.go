@@ -61,13 +61,13 @@ func (ctx *Context) getCommands() map[string]cliCommand {
 		"create": {
 			name:        "create",
 			description: "Create a new template",
-			helpExample: "gogi create template-name",
+			helpExample: "gogi create template-name [-e | --edit] [-b | --base]",
 			callback:    (*Context).commandCreate,
 		},
 		"delete": {
 			name:        "delete",
 			description: "Delete an existing gitignore alias",
-			helpExample: "gogi delete template-name",
+			helpExample: "gogi delete template-name [--f | --force]",
 			callback:    (*Context).commandDelete,
 		},
 		"list": {
@@ -79,7 +79,7 @@ func (ctx *Context) getCommands() map[string]cliCommand {
 		"generate": {
 			name:        "generate",
 			description: "Generate a gitignore file from the given template",
-			helpExample: "gogi generate template-name",
+			helpExample: "gogi generate template-name [--f | --force]",
 			callback:    (*Context).commandGenerate,
 		},
 		"edit": {
@@ -114,13 +114,13 @@ func (ctx *Context) getCommands() map[string]cliCommand {
 		},
 		"alias": {
 			name:        "alias",
-			description: "show the list of avaiable command aliases",
+			description: "Show the list of avaiable command aliases",
 			helpExample: "gogi alias",
 			callback:    (*Context).commandAlias,
 		},
 		"rename": {
 			name:        "rename",
-			description: "rename a template",
+			description: "Rename a template",
 			helpExample: "gogi rename old-name new-name",
 			callback:    (*Context).commandRename,
 		},
@@ -129,14 +129,14 @@ func (ctx *Context) getCommands() map[string]cliCommand {
 
 func checkIfReservedWord(word string) error {
 
-	for _, reserverdWord := range ReservedWords {
-		if word == reserverdWord {
-			return fmt.Errorf("'%s' is a reserved word", reserverdWord)
+	for _, reservedWord := range ReservedWords {
+		if word == reservedWord {
+			return fmt.Errorf("'%s' is a reserved word", reservedWord)
 		}
 	}
-	for _, reserverdFlag := range ReservedFlags {
-		if word == reserverdFlag {
-			return fmt.Errorf("'%s' is a reserved flag", reserverdFlag)
+	for _, reservedFlag := range ReservedFlags {
+		if word == reservedFlag {
+			return fmt.Errorf("'%s' is a reserved flag", reservedFlag)
 		}
 	}
 	return nil
