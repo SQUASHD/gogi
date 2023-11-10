@@ -1,12 +1,11 @@
-## Gogi: A simple .gitignore template manager
-
-![the installation process for gogi](./gifs/gogi_init.gif)
+## gogi: A simple .gitignore template manager
 
 ### Installation
 Deploy Gogi with the following command:
 ```bash
 go install github.com/SQUASHD/gogi@latest
 ```
+![the installation process for gogi](./gifs/gogi_init.gif)
 
 ### Configuration
 Initialize Gogi to set up a dedicated template directory within your `.config` folder:
