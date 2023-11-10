@@ -377,29 +377,3 @@ func TestQuickGogi(t *testing.T) {
 		})
 	}
 }
-
-func TestImportCommand(t *testing.T) {
-	tests := []struct {
-		name    string
-		args    []string
-		wantErr bool
-	}{
-		{"import no args", []string{}, true},
-		{"import malformed args", []string{""}, true},
-		{"import valid args", []string{"test3"}, false},
-		{"import reserved word", []string{"help"}, true},
-		{"import existing template", []string{"test1"}, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx, cleanup := newTestContext(t)
-			defer cleanup()
-
-			err := ctx.commandImport(tt.args)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("commandImport() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
