@@ -1,9 +1,5 @@
 ## Gogi: A simple .gitignore template manager
 
-
-> [!IMPORTANT]  
-> While the features are stable, this is still a work in progress
-
 ![the installation process for gogi](./gifs/gogi_init.gif)
 
 ### Installation
